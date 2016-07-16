@@ -6,8 +6,10 @@ parser = argparse.ArgumentParser(description='Neural network KFold testing and p
 # Run 'python nerve_hunters.py --KFold' to do cross validation on training data
 # Run 'python nerve_hunters.py' to make predictions on test data
 # Run 'python nerve_hunters.py --both' to do to cross validation and make predictions
+# Add '--small' to use subset of training and test data
 parser.add_argument('--KFold', action='store_true')
 parser.add_argument('--both', action='store_true')
+parser.add_argument('--small', action='store_true')
 args = parser.parse_args()
 
 import numpy as np
@@ -33,6 +35,8 @@ def get_raw_images(folder):
     folder : str
         Name of folder to import from.
     '''
+    if args.small:
+        folder += '_small'
     all_paths = glob.glob(os.path.join(folder, '*.tif'))
     img_paths = [img for img in all_paths if 'mask' not in img]
     imgs, masks, ids = [], [], []
@@ -40,16 +44,14 @@ def get_raw_images(folder):
         ids.append(img_p[len(folder)+1:-4])
         img = cv2.imread(img_p, 0)
         imgs.append(img)
-        if folder == 'train':
+        if folder == 'train' or folder == 'train_small':
             mask = cv2.imread(img_p[:-4]+'_mask.tif', 0)
             masks.append(mask)
     return imgs, masks, np.array(ids)
 
-def process_raw_images(folder, imgs, n_rows, n_cols):
+def process_raw_images(imgs, n_rows, n_cols):
     ''' Transform images into features for classification model.
     ---
-    folder : str
-        Name of folder images were imported from (train/test).
     imgs : list of numpy arrays with shape=[n_dim, n_rows, n_columns]
         Ultrasound images (2D) where n_dim=1 (one color chanel).
     n_rows / n_cols : int
@@ -57,17 +59,14 @@ def process_raw_images(folder, imgs, n_rows, n_cols):
     '''
     proc_imgs = []
     for img in imgs:
-        proc_img = image_shrink(folder, img,
-                                n_rows=n_rows, n_cols=n_cols)
+        proc_img = image_shrink(img, n_rows=n_rows, n_cols=n_cols)
         proc_imgs.append([proc_img])
     # Must normalize such that max pixel value is 1.0
     return np.array(proc_imgs) / 255
 
-def image_shrink(folder, img, n_rows, n_cols):
+def image_shrink(img, n_rows, n_cols):
     ''' Reduce image size.
     ---
-    folder : str
-        Name of folder images were imported from (train/test).
     img : numpy array, shape=[n_rows, n_columns]
         Ultrasound image (2D).
     n_rows / n_cols : int
@@ -137,15 +136,22 @@ class LossHistory(Callback):
 
 def write_submission(f_name, y_pred, X_test_id, mask):
     if f_name:
+        # Create submission
         mask_rle = run_length_encode(mask)
+        lines = []
+        for y, y_id in zip(y_pred, X_test_id):
+            # y look like [1., 0.] or [0., 1.]
+            if y[0] == 0:
+                # Positive prediction
+                lines.append((int(y_id), y_id+','+mask_rle+'\n'))
+            else:
+                # Negative prediction
+                lines.append((int(y_id), y_id+',\n'))
+        lines = sorted(lines, key=lambda x: x[0])
         with open(f_name, 'w') as f:
             f.write('img,pixels\n')
-            for y, y_id in zip(y_pred, X_test_id):
-                f.write(y_id+',')
-                if y[0] == 0:
-                    # Positive prediction
-                    f.write(mask_rle)
-                f.write('\n')
+            for _, line in lines:
+                f.write(line)
 
     # Return the percentage of positive classifications
     p = y_pred.sum(axis=0)[1]/len(y_pred)
@@ -211,7 +217,7 @@ def main():
     imgs, masks, X_train_id = get_raw_images('train')
     t1 = time.time()
     print('Got raw training data in {} seconds'.format(t1-t0))
-    X_train = process_raw_images('train', imgs, n_rows, n_cols)
+    X_train = process_raw_images(imgs, n_rows, n_cols)
     print('X_train shape:', X_train.shape)
     y_train = process_raw_masks(masks)
     print('y_train (target) shape:', y_train.shape)
@@ -221,7 +227,7 @@ def main():
     imgs, masks, X_test_id = get_raw_images('test')
     t1 = time.time()
     print('Got raw test data in {} seconds'.format(t1-t0))
-    X_test = process_raw_images('test', imgs, n_rows, n_cols)
+    X_test = process_raw_images(imgs, n_rows, n_cols)
     print('X_test shape:', X_test.shape)
 
     # Train neural network

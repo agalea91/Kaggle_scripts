@@ -1,0 +1,22 @@
+Time = ~17 min with GPU and nvcc.fastmath=True, ~22 min without fastmath, ~30 min with CPU
+Kaggle score = 0.49937
+
+General:
+-applying average mask
+
+Features:
+-reduce images to 32x32 pixels
+
+CNN model:
+
+    clf = Sequential()
+    clf.add(Convolution2D(4, 3, 3, border_mode='same', init='he_normal',
+                          input_shape=X_train[0].shape))
+    clf.add(MaxPooling2D(pool_size=(2, 2)))
+
+    clf.add(Flatten())
+    clf.add(Dense(2))
+    clf.add(Activation('softmax'))
+
+    sgd = SGD(lr=1e-3, decay=1e-6, momentum=0.9, nesterov=True)
+    clf.compile(optimizer=sgd, loss='categorical_crossentropy')
