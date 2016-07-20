@@ -41,7 +41,7 @@ def get_raw_images(folder):
     img_paths = [img for img in all_paths if 'mask' not in img]
     imgs, masks, ids = [], [], []
     for img_p in img_paths:
-        ids.append(img_p[len(folder)+1:-4])
+        ids.append(img_p.split('\\')[-1][:-4])
         img = cv2.imread(img_p, 0)
         imgs.append(img)
         if folder == 'train' or folder == 'train_small':
@@ -61,8 +61,11 @@ def process_raw_images(imgs, n_rows, n_cols):
     for img in imgs:
         proc_img = image_shrink(img, n_rows=n_rows, n_cols=n_cols)
         proc_imgs.append([proc_img])
-    # Must normalize such that max pixel value is 1.0
-    return np.array(proc_imgs) / 255
+    # For CNN to work (with current setup), must normalize
+    # such that max pixel value is 1.0. Also centering data about 0.
+    proc_imgs = np.array(proc_imgs) / 255
+    proc_imgs = proc_imgs - proc_imgs.mean()
+    return proc_imgs
 
 def image_shrink(img, n_rows, n_cols):
     ''' Reduce image size.
@@ -95,10 +98,25 @@ def clf_model_compile(X_train):
         One-hot-encoded labels for training data.
     '''
     clf = Sequential()
-    clf.add(Convolution2D(4, 3, 3, border_mode='same', init='he_normal',
+    clf.add(Convolution2D(32, 3, 3, border_mode='same', init='he_normal',
                           input_shape=X_train[0].shape))
+    clf.add(Activation('relu'))
     clf.add(MaxPooling2D(pool_size=(2, 2)))
-    
+
+    clf.add(Dropout(0.05))
+
+    clf.add(Convolution2D(64, 3, 3, border_mode='same', init='he_normal'))
+    clf.add(Activation('relu'))
+    clf.add(MaxPooling2D(pool_size=(2, 2)))
+
+    clf.add(Convolution2D(128, 3, 3, border_mode='same', init='he_normal'))
+    clf.add(Activation('relu'))
+    clf.add(MaxPooling2D(pool_size=(2, 2)))
+
+    clf.add(Convolution2D(256, 3, 3, border_mode='same', init='he_normal'))
+    clf.add(Activation('relu'))
+    clf.add(MaxPooling2D(pool_size=(2, 2)))
+
     clf.add(Flatten())
     clf.add(Dense(2))
     clf.add(Activation('softmax'))
@@ -115,26 +133,19 @@ class LossHistory(Callback):
     def on_epoch_end(self, epoch, logs={}):
         self.losses.append(logs.get('loss'))
 
-#    model = Sequential()
-#    model.add(Convolution2D(4, 3, 3, border_mode='same', init='he_normal',
-#                            input_shape=X_train[0].shape))
-#    model.add(MaxPooling2D(pool_size=(2, 2)))
-#    model.add(Dropout(0.15))
-#
-#    model.add(Convolution2D(8, 3, 3, border_mode='same', init='he_normal'))
-#    model.add(MaxPooling2D(pool_size=(2, 2)))
-#    model.add(Dropout(0.15))
-#
-#    model.add(Flatten())
-#    model.add(Dense(2))
-#    model.add(Activation('softmax'))
-#
-#    sgd = SGD(lr=1e-3, decay=1e-6, momentum=0.9, nesterov=True)
-#    model.compile(optimizer=sgd, loss='categorical_crossentropy')
-#    return model
-
-
 def write_submission(f_name, y_pred, X_test_id, mask):
+    ''' Write prediction masks to file and return the percentage
+    of predictions that are positive.
+    ---
+    f_name : str
+        Name of submission file.
+    y_pred : numpy array, shape=[n_samples, 2]
+        One-hot-encoded predictions.
+    X_test_id : array
+        Test image ID's.
+    mask : numpy array, shape=[n_cols, n_rows]
+        Mask image to assign to positive predictions.
+    '''
     if f_name:
         # Create submission
         mask_rle = run_length_encode(mask)
@@ -198,18 +209,30 @@ def get_average_mask():
         average_mask += m
 
     max_value = average_mask.max()
-    threshold = max_value*0.5
+    threshold = max_value*0.45
     average_mask[average_mask < threshold] = 0
     average_mask[average_mask >= threshold] = 255
-#    average_mask = average_mask.astype(np.uint8)
     return average_mask
+
+def save_model(model):
+    model_json = model.to_json()
+    if not os.path.isdir('trained_model'):
+        os.mkdir('trained_model')
+    open(os.path.join('trained_model', 'keras_model.json'), 'w').write(model_json)
+    model.save_weights(os.path.join('trained_model', 'model_weights.h5'), overwrite=True)
+
+def load_model():
+    model = model_from_json(open(os.path.join('trained_model', 'keras_model.json')).read())
+    model.load_weights(os.path.join('trained_model', 'model_weights.h5'))
+    return model
 
 def main():
 
     average_mask = get_average_mask()
     print('Generated average mask')
 
-    n_rows, n_cols = 32, 32
+#    n_rows, n_cols = 84, 116
+    n_rows, n_cols = 42, 58
     print('Reducing images to {} by {} pixels'.format(n_rows, n_cols))
 
     # Get training data
@@ -232,7 +255,7 @@ def main():
 
     # Train neural network
     batch_size = 30
-    nb_epoch = 50
+    nb_epoch = 30
 
     if args.KFold or args.both:
 
@@ -249,9 +272,11 @@ def main():
 
             clf = clf_model_compile(X_train[train_index])
             loss_log = LossHistory()
+            early_stop = EarlyStopping(monitor='val_loss', patience=10)
             clf.fit(X_train[train_index], y_train[train_index],
                     batch_size=batch_size, nb_epoch=nb_epoch,
-                    verbose=1, shuffle=True, callbacks=[loss_log])
+                    validation_data = (X_train[test_index], y_train[test_index]),
+                    verbose=1, shuffle=True, callbacks=[loss_log, early_stop])
             kf_scores[i] = [float(L) for L in loss_log.losses]
             
             y_pred = clf.predict(X_train[test_index], batch_size=batch_size)
@@ -269,10 +294,10 @@ def main():
 
     if not args.KFold or args.both:
 
+#        nb_epoch *= 2
         print('--------------------------------------------------------')
         print('Starting test set prediction with batch_size={}, nb_epoch={}'.format(batch_size, nb_epoch))
         clf = clf_model_compile(X_train)
-        print('Compiled clf model')
         loss_log = LossHistory()
         # Train the model
         clf.fit(X_train, y_train,
@@ -287,6 +312,10 @@ def main():
         p = write_submission('submission_{0:.3f}.csv'.format(test_scores[-1]), y_pred, X_test_id, average_mask)
         print('Percent positive predictions:', p)
         json.dump(test_scores, open('test_scores_{0:.3f}.json'.format(test_scores[-1]), 'w'))
+        save_model(clf)
+
+    if args.both:
+        print('Average k fold score ({2:d}): {0:.4f} +/- {1:.4f}'.format(score[0], score[1], n_folds))
 
 if __name__ == '__main__':
     print('--------------------------------------------------------')
