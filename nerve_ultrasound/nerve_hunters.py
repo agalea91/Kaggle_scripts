@@ -28,6 +28,7 @@ from keras.layers.convolutional import Convolution2D
 from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import SGD, Adam
 from keras.callbacks import EarlyStopping, Callback
+from keras.utils.visualize_util import plot as keras_plot
 
 def get_raw_images(folder):
     ''' Load images from train/test folder using cv2.
@@ -37,7 +38,7 @@ def get_raw_images(folder):
     '''
     if args.small:
         folder += '_small'
-    all_paths = glob.glob(os.path.join(folder, '*.tif'))
+    all_paths = glob.glob(os.path.join('..', '..', folder, '*.tif'))
     img_paths = [img for img in all_paths if 'mask' not in img]
     imgs, masks, ids = [], [], []
     for img_p in img_paths:
@@ -103,8 +104,6 @@ def clf_model_compile(X_train):
     clf.add(Activation('relu'))
     clf.add(MaxPooling2D(pool_size=(2, 2)))
 
-    clf.add(Dropout(0.05))
-
     clf.add(Convolution2D(64, 3, 3, border_mode='same', init='he_normal'))
     clf.add(Activation('relu'))
     clf.add(MaxPooling2D(pool_size=(2, 2)))
@@ -114,6 +113,10 @@ def clf_model_compile(X_train):
     clf.add(MaxPooling2D(pool_size=(2, 2)))
 
     clf.add(Convolution2D(256, 3, 3, border_mode='same', init='he_normal'))
+    clf.add(Activation('relu'))
+    clf.add(MaxPooling2D(pool_size=(2, 2)))
+
+    clf.add(Convolution2D(512, 3, 3, border_mode='same', init='he_normal'))
     clf.add(Activation('relu'))
     clf.add(MaxPooling2D(pool_size=(2, 2)))
 
@@ -200,7 +203,7 @@ def run_length_encode(img):
 
 def get_average_mask():
     ''' Get mask to output if image given positive classification. '''
-    masks = glob.glob(os.path.join('train', '*_mask.tif'))
+    masks = glob.glob(os.path.join('..', '..', 'train', '*_mask.tif'))
     average_mask = np.zeros(shape=cv2.imread(masks[0], 0).shape,
                             dtype=np.float32)
     for mask in masks:
@@ -231,8 +234,8 @@ def main():
     average_mask = get_average_mask()
     print('Generated average mask')
 
-#    n_rows, n_cols = 84, 116
-    n_rows, n_cols = 42, 58
+    n_rows, n_cols = 96, 128
+#    n_rows, n_cols = 42, 58
     print('Reducing images to {} by {} pixels'.format(n_rows, n_cols))
 
     # Get training data
@@ -290,7 +293,9 @@ def main():
 
         score = (np.mean(kf_average), np.std(kf_average))
         print('Average score: {0:.4f} +/- {1:.4f}'.format(score[0], score[1]))
-        json.dump(kf_scores, open('kf_scores_acc_{0:.3f}({1:.3f}).json'.format(score[0], score[1]), 'w'))
+        json.dump(kf_scores, open('kf_scores_losses_{0:.3f}({1:.3f}).json'.format(score[0], score[1]), 'w'))
+        with open('kf_scores_test_set_acc.dat', 'w') as f:
+            print(kf_average, file=f)
 
     if not args.KFold or args.both:
 
@@ -316,6 +321,8 @@ def main():
 
     if args.both:
         print('Average k fold score ({2:d}): {0:.4f} +/- {1:.4f}'.format(score[0], score[1], n_folds))
+
+    keras_plot(clf, show_shapes=True, to_file='keras_model.png')
 
 if __name__ == '__main__':
     print('--------------------------------------------------------')
