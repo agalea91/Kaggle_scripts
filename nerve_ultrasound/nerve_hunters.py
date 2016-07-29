@@ -36,9 +36,12 @@ def get_raw_images(folder):
     folder : str
         Name of folder to import from.
     '''
-    if args.small:
-        folder += '_small'
-    all_paths = glob.glob(os.path.join('..', '..', folder, '*.tif'))
+#    if args.small:
+#        folder += '_small'
+    if folder == 'train':
+        all_paths = glob.glob(os.path.join('..', '..', folder+'_fix_1', 'imgs', '*.tif'))
+    else:
+        all_paths = glob.glob(os.path.join('..', '..', folder, '*.tif'))
     img_paths = [img for img in all_paths if 'mask' not in img]
     imgs, masks, ids = [], [], []
     for img_p in img_paths:
@@ -99,12 +102,12 @@ def clf_model_compile(X_train):
         One-hot-encoded labels for training data.
     '''
     clf = Sequential()
-    clf.add(Convolution2D(32, 3, 3, border_mode='same', init='he_normal',
+    clf.add(Convolution2D(32, 9, 9, border_mode='same', init='he_normal',
                           input_shape=X_train[0].shape))
     clf.add(Activation('relu'))
     clf.add(MaxPooling2D(pool_size=(2, 2)))
 
-    clf.add(Convolution2D(64, 3, 3, border_mode='same', init='he_normal'))
+    clf.add(Convolution2D(64, 6, 6, border_mode='same', init='he_normal'))
     clf.add(Activation('relu'))
     clf.add(MaxPooling2D(pool_size=(2, 2)))
 
@@ -124,8 +127,9 @@ def clf_model_compile(X_train):
     clf.add(Dense(2))
     clf.add(Activation('softmax'))
 
-    sgd = SGD(lr=1e-3, decay=1e-6, momentum=0.9, nesterov=True)
-    clf.compile(optimizer=sgd, loss='categorical_crossentropy')
+#    sgd = SGD(lr=1e-3, decay=1e-6, momentum=0.9, nesterov=True)
+    adam = Adam(lr=1e-5)
+    clf.compile(optimizer=adam, loss='categorical_crossentropy')
 
     return clf
 
@@ -203,7 +207,7 @@ def run_length_encode(img):
 
 def get_average_mask():
     ''' Get mask to output if image given positive classification. '''
-    masks = glob.glob(os.path.join('..', '..', 'train', '*_mask.tif'))
+    masks = glob.glob(os.path.join('..', '..', 'train_fix_1', 'imgs', '*_mask.tif'))
     average_mask = np.zeros(shape=cv2.imread(masks[0], 0).shape,
                             dtype=np.float32)
     for mask in masks:
