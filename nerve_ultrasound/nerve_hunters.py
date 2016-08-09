@@ -1,5 +1,4 @@
 __author__ = 'Alex Galea'
-# This script is based one created by Kaggle user ZFTurbo
 
 import argparse
 parser = argparse.ArgumentParser(description='Neural network KFold testing and predicting.')
