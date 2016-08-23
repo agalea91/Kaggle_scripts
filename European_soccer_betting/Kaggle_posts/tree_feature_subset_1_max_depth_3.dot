@@ -1,0 +1,32 @@
+digraph Tree {
+node [shape=box] ;
+0 [label="aF_overall_rating <= 0.9376\ngini = 0.6419\nsamples = 15223\nvalue = [11072, 5985, 7056]"] ;
+1 [label="aG_average_rating <= 0.8511\ngini = 0.6302\nsamples = 12587\nvalue = [9778, 4964, 5248]"] ;
+0 -> 1 [labeldistance=2.5, labelangle=45, headlabel="True"] ;
+2 [label="hF_overall_rating <= 0.5329\ngini = 0.6261\nsamples = 11045\nvalue = [8712, 4243, 4559]"] ;
+1 -> 2 ;
+3 [label="gini = 0.6473\nsamples = 8392\nvalue = [5910, 3401, 4004]"] ;
+2 -> 3 ;
+4 [label="gini = 0.497\nsamples = 2653\nvalue = [2802, 842, 555]"] ;
+2 -> 4 ;
+5 [label="hG_average_rating <= 0.7358\ngini = 0.6524\nsamples = 1542\nvalue = [1066, 721, 689]"] ;
+1 -> 5 ;
+6 [label="gini = 0.6627\nsamples = 972\nvalue = [587, 448, 528]"] ;
+5 -> 6 ;
+7 [label="gini = 0.6042\nsamples = 570\nvalue = [479, 273, 161]"] ;
+5 -> 7 ;
+8 [label="hD_overall_rating <= 1.0105\ngini = 0.6479\nsamples = 2636\nvalue = [1294, 1021, 1808]"] ;
+0 -> 8 [labeldistance=2.5, labelangle=-45, headlabel="False"] ;
+9 [label="aM_overall_rating <= 1.6106\ngini = 0.6232\nsamples = 1991\nvalue = [776, 772, 1570]"] ;
+8 -> 9 ;
+10 [label="gini = 0.6444\nsamples = 1485\nvalue = [666, 606, 1059]"] ;
+9 -> 10 ;
+11 [label="gini = 0.5144\nsamples = 506\nvalue = [110, 166, 511]"] ;
+9 -> 11 ;
+12 [label="aD_overall_rating <= 1.5988\ngini = 0.6169\nsamples = 645\nvalue = [518, 249, 238]"] ;
+8 -> 12 ;
+13 [label="gini = 0.5585\nsamples = 448\nvalue = [417, 158, 120]"] ;
+12 -> 13 ;
+14 [label="gini = 0.6628\nsamples = 197\nvalue = [101, 91, 118]"] ;
+12 -> 14 ;
+}

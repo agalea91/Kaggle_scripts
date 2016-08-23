@@ -1,0 +1,16 @@
+digraph Tree {
+node [shape=box] ;
+0 [label="aF_overall_rating <= 0.9376\nentropy = 1.5334\nsamples = 15223\nvalue = [11072, 5985, 7056]"] ;
+1 [label="aG_average_rating <= 0.8511\nentropy = 1.5102\nsamples = 12587\nvalue = [9778, 4964, 5248]"] ;
+0 -> 1 [labeldistance=2.5, labelangle=45, headlabel="True"] ;
+2 [label="entropy = 1.5021\nsamples = 11045\nvalue = [8712, 4243, 4559]"] ;
+1 -> 2 ;
+3 [label="entropy = 1.5553\nsamples = 1542\nvalue = [1066, 721, 689]"] ;
+1 -> 3 ;
+4 [label="hF_overall_rating <= 0.9232\nentropy = 1.5449\nsamples = 2636\nvalue = [1294, 1021, 1808]"] ;
+0 -> 4 [labeldistance=2.5, labelangle=-45, headlabel="False"] ;
+5 [label="entropy = 1.4849\nsamples = 1877\nvalue = [686, 742, 1510]"] ;
+4 -> 5 ;
+6 [label="entropy = 1.486\nsamples = 759\nvalue = [608, 279, 298]"] ;
+4 -> 6 ;
+}
